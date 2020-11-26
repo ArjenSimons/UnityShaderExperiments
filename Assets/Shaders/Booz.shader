@@ -30,9 +30,12 @@
 				{
 					float4 pos : SV_POSITION;
 					float2 uv : TEXCOORD0;
+					float fillHeight : TEXCOORD1;
 					float3 viewDir : COLOR;
 					float3 normal : COLOR2;
 				};
+
+				uniform float _FillAmount;
 
 				v2f vert(appdata_t v)
 				{
@@ -40,12 +43,14 @@
 					o.pos = UnityObjectToClipPos(v.vertex);
 					o.uv = v.uv;
 
+					float3 worldPos = mul(unity_ObjectToWorld, v.vertex.xyz);
+					o.fillHeight = worldPos.y - _FillAmount * 1.6 + 0.1;
+
 					o.viewDir = normalize(ObjSpaceViewDir(v.vertex));
 					o.normal = v.normal;
 					return o;
 				}
 
-				uniform float _FillAmount;
 				uniform sampler2D _MainTex;
 				uniform half4 _Color;
 				uniform half4 _RimColor;
@@ -61,7 +66,7 @@
 					half4 col = facing > 0 ? fillCol : _TopColor;
 					col *= tex2D(_MainTex, i.uv);
 
-					col.a = step(i.uv.y, _FillAmount);
+					col.a = step(0.7, -i.fillHeight);
 					
 					return col;
 				}
