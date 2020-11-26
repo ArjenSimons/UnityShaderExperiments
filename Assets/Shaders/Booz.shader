@@ -1,68 +1,59 @@
-﻿Shader "Unlit/Booz"
-{
+﻿Shader "Custom/Gradient" {
 	Properties{
-		_Color("Main Color", Color) = (1,1,1,1)
-		_RimColor("Rim Color", Color) = (1, 1, 1, 1)
-		_RimThickness("Rim Thickness", Range(0, 1)) = 0.7
-        _MainTex ("Base (RGB)", 2D) = "white" {}
-    }
-   
-    SubShader {
-        Tags {
-		"Queue"="Transparent"
-		}
-        Pass {
-           
-				Zwrite On
-				Cull Off
+		_Color("Color", Color) = (1,1,1,1)
+		_TopColor("Top Color", Color) = (1, 1, 1, 1)
+		_FillAmount("Fill Amount", Range(0, 1)) = 0.7
+		_MainTex("Main Texture", 2D) = "white" {}
+	}
+
+		SubShader{
+			Pass {
+				Cull off
+				Blend SrcAlpha OneMinusSrcAlpha
 				AlphaToMask On
-            CGPROGRAM
-               
-                #pragma vertex vert
-                #pragma fragment frag
-                #include "UnityCG.cginc"
-                struct appdata {
-                    float4 vertex : POSITION;
-                    float3 normal : NORMAL;
-                    float2 texcoord : TEXCOORD0;
-                };
-               
-                struct v2f {
-                    float4 pos : SV_POSITION;
-                    float2 uv : TEXCOORD0;
-                    float3 color : COLOR;
-                };
-               
-                uniform float4 _MainTex_ST;
-                uniform float4 _RimColor;
-				uniform float1 _RimThickness;
-               
-                v2f vert (appdata_base v) {
-                    v2f o;
-                    o.pos = UnityObjectToClipPos (v.vertex);
-                   
-                    float3 viewDir = normalize(ObjSpaceViewDir(v.vertex));
-					float dotProduct = 1 - dot(v.normal, viewDir);
-                    o.color = smoothstep(1 - _RimThickness, 1.0, dotProduct);
-                   
-                    o.color *= _RimColor;
-                   
-                    o.uv = TRANSFORM_TEX(v.texcoord, _MainTex);
-                   
-                    return o;
-                }
-               
-                uniform sampler2D _MainTex;
-                uniform float4 _Color;
-               
-                float4 frag(v2f i) : COLOR {
-                    float4 texcol = tex2D(_MainTex, i.uv);
-                    texcol *= _Color;
-                    texcol.rgb += i.color;
-                    return texcol;
-                }
-               
-            ENDCG
-        }
-    }
+				CGPROGRAM
+
+				#pragma vertex vert 
+				#pragma fragment frag 
+				#include "UnityCG.cginc"
+
+				struct appdata_t
+				{
+					float4 vertex : POSITION;
+					float3 normal : NORMAL;
+					float2 uv : TEXCOORD0;
+				};
+
+				struct v2f
+				{
+					float4 pos : SV_POSITION;
+					float2 uv : TEXCOORD0;
+				};
+
+				v2f vert(appdata_t v)
+				{
+					v2f o;
+					o.pos = UnityObjectToClipPos(v.vertex);
+					o.uv = v.uv;
+
+					return o;
+				}
+
+				uniform float _FillAmount;
+				uniform sampler2D _MainTex;
+				uniform half4 _Color;
+				uniform half4 _TopColor;
+
+				half4 frag(v2f i, fixed facing : VFACE) : COLOR
+				{
+					half4 col = facing > 0 ? _Color : _TopColor;
+					col *= tex2D(_MainTex, i.uv);
+
+					col.a = step(i.uv.y, _FillAmount);
+					
+					return col;
+				}
+			ENDCG
+			}
+	}
 }
