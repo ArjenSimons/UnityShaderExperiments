@@ -19,24 +19,24 @@ namespace Raymarching
         }
 
         [SerializeField] private ComputeShader raymarcher;
-        [SerializeField] private RenderTexture renderTexture;
         [SerializeField] private Camera cam;
         [SerializeField] private Light lightSource;
 
+        private RenderTexture renderTexture;
         private ComputeBuffer shapesBuffer;
         private List<Shape> shapes;
         private ShapeData[] shapesData;
 
-        private void OnRenderImage(RenderTexture source, RenderTexture destination)
+        void OnRenderImage(RenderTexture source, RenderTexture destination)
         {
             InitRenderTexture();
             InitEnvironment();
-            SetComputeParams(source);
+            SetComputeParams(renderTexture);
 
             int gridSizeX = Mathf.CeilToInt(cam.pixelWidth / 8.0f);
-            int gridSizey = Mathf.CeilToInt(cam.pixelHeight / 8.0f);
+            int gridSizeY = Mathf.CeilToInt(cam.pixelHeight / 8.0f);
 
-            raymarcher.Dispatch(0, gridSizeX, gridSizey, 1);
+            raymarcher.Dispatch(0, gridSizeX, gridSizeY, 1);
 
             Graphics.Blit(renderTexture, destination);
 

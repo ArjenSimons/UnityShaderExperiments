@@ -23,9 +23,9 @@ namespace Raymarching
         public ShapeType ShapeType => shapeType;
         public BlendType BlendType => blendType;
         public Color Color => color;
-        public float BlendStrength => BlendStrength;
+        public float BlendStrength => blendStrength;
         public Vector3 Position { get { return transform.position; } }
-        public Vector3 Scale { get { return transform.lossyScale; } }
+        public Vector3 Scale { get { return transform.lossyScale * 0.5f; } }
 
         [SerializeField] private ShapeType shapeType;
         [SerializeField] private BlendType blendType;
