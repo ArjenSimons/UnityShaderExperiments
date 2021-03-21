@@ -1,0 +1,136 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+static const float MAX_DIST = 50;
+static const float MAX_STEPS = 100;
+static const float EPSILON = 0.01f;
+
+struct Shape {
+    int shapeType;
+    int blendType;
+    float blendStrength;
+    float3 color;
+    float3 position;
+    float3 scale;
+};
+
+struct Ray {
+    float3 origin;
+    float3 dir;
+};
+
+Texture2D<float4> _src;
+RWTexture2D<float4> _out;
+
+float4x4 _CameraToWorld;
+float4x4 _CameraInverseProjection;
+
+float3 _Light;
+
+StructuredBuffer<Shape> _shapes;
+int _numShapes;
+
+float SphereDistance(float3 pov, float3 centre, float radius) {
+    return distance(pov, centre) - radius;
+}
+
+Ray GetRay(float3 origin, float3 dir) {
+    Ray ray;
+    ray.origin = origin;
+    ray.dir = dir;
+    return ray;
+}
+
+Ray GetCameraRay(float2 pixelCoord){
+    float3 origin = mul(_CameraToWorld, float4(0, 0, 0, 1)).xyz;
+    float3 dir = mul(_CameraInverseProjection, float4(pixelCoord, 0, 1)).xyz;
+    dir = normalize(mul(_CameraToWorld, float4(dir, 0)).xyz);
+
+    return GetRay(origin, dir);
+}
+
+float2 GetPixelCoords(uint2 id) {
+    uint w, h;
+    _out.GetDimensions(w, h);
+    return id / float2(w, h) * 2 - 1;
+}
+
+float4 CompareDistances(float distA, float distB, float3 colorA, float3 colorB, int blendType, float blendStrength) {
+    float dist = distA;
+    float3 color = colorA;
+
+    // Normal
+    if (blendType == 0) {
+        if (distB < distA) {
+            dist = distB;
+            color = colorB;
+        }
+    }
+    else {
+        if (distB < distA) {
+            dist = distB;
+            color = colorB;
+        }
+    }
+
+    return float4(color, dist);
+}
+
+float GetShapeDistance(Shape shape, float3 pov) {
+    if (shape.shapeType == 0) {
+        return SphereDistance(pov, shape.position, shape.scale.x);
+    }
+    return SphereDistance(pov, shape.position, shape.scale.x);
+}
+
+float4 GetClosestPointInfo(float3 pov) {
+    float globalDist = MAX_DIST;
+    float3 globalColor = 1;
+
+    float4 output;
+    Shape shape;
+
+    for(int i = 0; i < _numShapes; i++) {
+        shape = _shapes[i];
+
+        float shapeDist = GetShapeDistance(shape, pov);
+
+        output = CompareDistances(shapeDist, globalDist, shape.color, globalColor, shape.blendType, shape.blendStrength);
+    }
+
+    return output;
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    _out[id.xy] = _src[id.xy];
+
+    float2 pixelCoords = GetPixelCoords(id.xy);
+
+    Ray ray = GetCameraRay(pixelCoords);
+
+    int nSteps = 0;
+    float rayDist = 0;
+
+    while (rayDist < MAX_DIST && nSteps < MAX_STEPS) {
+        float4 stepData = GetClosestPointInfo(ray.origin);
+        float dist = stepData.w;
+
+        if (dist <= EPSILON) {
+            _out[id.xy] = float4(stepData.xyz, 1);
+            break;
+        }
+
+        ray.origin += ray.dir * dist;
+        rayDist += dist;
+        nSteps++;
+    }
+    float3 pov = float3(id.xy, 0);
+    float invDist = 1 / GetShapeDistance(_shapes[0], pov);
+    _out[id.xy] = float4(invDist, invDist, invDist, 1);
+
+    
+
+    //_out[id.xy] = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
+}
